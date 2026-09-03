@@ -36,7 +36,17 @@ voice_option = st.sidebar.selectbox(
     help="Wähle den Klangcharakter der Stimme."
 )
 
-# 4. Dateiname & Format
+# 4. Geschwindigkeits-Regler (Speed)
+speed_option = st.sidebar.slider(
+    "Sprechgeschwindigkeit (Speed)",
+    min_value=0.25,
+    max_value=4.0,
+    value=1.0,
+    step=0.05,
+    help="1.0 ist Standard. Höhere Werte sprechen schneller, niedrigere langsamer."
+)
+
+# 5. Dateiname & Format
 file_name_input = st.sidebar.text_input(
     "Dateiname (ohne Endung)", 
     value="mein_audiobook",
@@ -49,17 +59,39 @@ format_option = st.sidebar.selectbox(
     index=0
 )
 
-# --- HAUPTBEREICH: TEXTEINGABE ---
+# --- HAUPTBEREICH: TEXTEINGABE & STATISTIKEN ---
 st.subheader("📝 Texteingabe")
+
 text_input = st.text_area(
     "Füge hier deinen Text ein:", 
     height=250,
     placeholder="Hallo! Das ist ein Test für die Sprachgenerierung..."
 )
 
+# Metriken berechnen
+char_count = len(text_input)
+word_count = len(text_input.split()) if text_input.strip() else 0
+
+# Schätzung der Audiodauer: Durchschnittlich ~150 Wörter pro Minute bei 1.0x Speed
+base_wpm = 150
+adjusted_wpm = base_wpm * speed_option
+estimated_minutes = word_count / adjusted_wpm if adjusted_wpm > 0 else 0
+
+# Anzeige von Zähler und Schätzung
+col1, col2, col3 = st.columns(3)
+col1.metric("Anzahl Zeichen", f"{char_count} / 4.096")
+col2.metric("Anzahl Wörter", f"{word_count}")
+col3.metric("Geschätzte Länge", f"~{estimated_minutes:.1f} Min")
+
+# Zeichen-Cap Warnung / Hinweis
+if char_count > 4096:
+    st.warning(
+        f"⚠️ **Hinweis:** Dein Text überschreitet das OpenAI-Limit von 4.096 Zeichen pro Einzelanfrage "
+        f"({char_count} Zeichen). Die App teilt den Text automatisch in Abschnitte auf, um ihn komplett zu verarbeiten."
+    )
+
 # Hilfsfunktion zum Aufteilen von Text in Sätze
 def split_text_into_sentences(text):
-    # Trennt Text bei Satzzeichen (., !, ?) auf, behält den Satzkontext bei
     sentences = re.split(r'(?<=[.!?]) +', text.strip())
     return [s.strip() for s in sentences if s.strip()]
 
@@ -92,11 +124,12 @@ if st.button("🚀 Audio Generieren", type="primary"):
                 # Status aktualisieren
                 status_text.text(f"Verarbeite Segment {index + 1} von {total_sentences}...")
                 
-                # API-Anfrage stellen
+                # API-Anfrage stellen (inkl. speed-Parameter)
                 response = client.audio.speech.create(
                     model=model_option,
                     voice=voice_option,
                     input=sentence,
+                    speed=speed_option,
                     response_format=format_option
                 )
                 
@@ -109,7 +142,7 @@ if st.button("🚀 Audio Generieren", type="primary"):
             
             status_text.success("✅ Generierung erfolgreich abgeschlossen!")
             
-            # Audio-Chunks zusammenfügen (Byte-Verkettung für Standard MP3)
+            # Audio-Chunks zusammenfügen
             complete_audio = b"".join(audio_chunks)
             
             # --- ERGEBNIS-ANZEIGE & DOWNLOAD ---
