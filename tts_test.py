@@ -1,6 +1,13 @@
+import os
 from pathlib import Path
 from openai import OpenAI
+from dotenv import load_dotenv
 
+# Lädt die Variablen aus der .env-Datei in die Umgebung
+load_dotenv()
+
+# Der OpenAI-Client zieht sich den Key nun automatisch
+client = OpenAI()
 # Client initialisieren (greift automatisch auf die Umgebungsvariable OPENAI_API_KEY zu)
 client = OpenAI()
 
